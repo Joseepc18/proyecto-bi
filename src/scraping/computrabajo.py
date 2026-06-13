@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -6,8 +7,11 @@ import requests
 from bs4 import BeautifulSoup
 
 FUENTE = "computrabajo"
-URL = "https://ec.computrabajo.com/empleos-de-tecnologia-sistemas-y-telecomunicaciones"
-# Carpeta data/raw/computrabajo/ calculada desde la ubicacion de este archivo.
+BASE = "https://ec.computrabajo.com/trabajo-de-"
+# Roles objetivo del proyecto, tal como aparecen en la URL de Computrabajo.
+ROLES = ["desarrollador", "analista-de-datos", "qa"]
+# Tope de seguridad para no quedar en un bucle infinito.
+MAX_PAGINAS = 20
 DIR_RAW = Path(__file__).resolve().parents[2] / "data" / "raw" / FUENTE
 
 # Sin un User-Agent de navegador, muchos sitios rechazan la peticion.
@@ -24,13 +28,9 @@ def _texto(elemento):
     return elemento.get_text(strip=True) if elemento else None
 
 
-def extraer_ofertas():
-    respuesta = requests.get(URL, headers=HEADERS, timeout=20)
-    respuesta.raise_for_status()
-    soup = BeautifulSoup(respuesta.text, "html.parser")
-
+def _parsear_pagina(soup, rol):
+    # Extrae las ofertas de una sola pagina ya descargada.
     ofertas = []
-    # Cada oferta es un <article class="box_offer">.
     for art in soup.select("article.box_offer"):
         titulo = art.select_one("a.js-o-link")
 
@@ -44,6 +44,7 @@ def extraer_ofertas():
                 modalidad = texto
 
         ofertas.append({
+            "rol_busqueda": rol,
             "titulo": _texto(titulo),
             "empresa": _texto(art.select_one("a.t_ellipsis")),
             # :not(.dFlex) evita confundir la ubicacion con el rating de la empresa.
@@ -53,6 +54,24 @@ def extraer_ofertas():
             "fecha": _texto(art.select_one("p.fs13.fc_aux.mt15")),
             "link": "https://ec.computrabajo.com" + titulo["href"] if titulo else None,
         })
+    return ofertas
+
+
+def extraer_ofertas():
+    ofertas = []
+    # Por cada rol objetivo, recorremos sus paginas hasta que una venga vacia.
+    for rol in ROLES:
+        for pagina in range(1, MAX_PAGINAS + 1):
+            url = f"{BASE}{rol}" if pagina == 1 else f"{BASE}{rol}?p={pagina}"
+            respuesta = requests.get(url, headers=HEADERS, timeout=20)
+            respuesta.raise_for_status()
+            soup = BeautifulSoup(respuesta.text, "html.parser")
+
+            nuevas = _parsear_pagina(soup, rol)
+            if not nuevas:        # pagina sin ofertas = ya no hay mas para este rol
+                break
+            ofertas.extend(nuevas)
+            time.sleep(1)         # pausa para no saturar el servidor (rate limiting)
     return ofertas
 
 
