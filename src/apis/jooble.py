@@ -1,19 +1,30 @@
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 
 import requests
+from dotenv import load_dotenv
 
-FUENTE = "remotive"
-URL_API = "https://remotive.com/api/remote-jobs"
-# Carpeta data/raw/remotive/ calculada desde la ubicacion de este archivo.
+FUENTE = "jooble"
+# Carpeta data/raw/jooble/ calculada desde la ubicacion de este archivo.
 DIR_RAW = Path(__file__).resolve().parents[2] / "data" / "raw" / FUENTE
 
+# Carga el .env y saca la API key (no se escribe en el codigo).
+load_dotenv()
+API_KEY = os.getenv("JOOBLE_API_KEY")
 
-def consultar_ofertas(categoria="software-dev"):
-    parametros = {"category": categoria}
-    # timeout: si la API no responde en 30s, corta y lanza error en vez de colgarse.
-    respuesta = requests.get(URL_API, params=parametros, timeout=30)
+
+def consultar_ofertas(keyword, ubicacion=""):
+    # Si falta la clave, corta con un mensaje claro en vez de fallar despues.
+    if not API_KEY:
+        raise RuntimeError("Falta JOOBLE_API_KEY en el archivo .env")
+
+    # ubicacion vacia = busqueda internacional (Jooble no indexa empleos de Ecuador).
+    url = f"https://jooble.org/api/{API_KEY}"
+    cuerpo = {"keywords": keyword, "location": ubicacion}
+    # POST con timeout: si la API no responde en 30s, corta en vez de colgarse.
+    respuesta = requests.post(url, json=cuerpo, timeout=30)
     # Si el servidor respondio con error (404, 500, ...), lanza una excepcion.
     respuesta.raise_for_status()
     datos = respuesta.json()
@@ -35,6 +46,6 @@ def guardar_raw(ofertas):
 
 
 if __name__ == "__main__":
-    ofertas = consultar_ofertas("software-dev")
+    ofertas = consultar_ofertas("developer")
     destino = guardar_raw(ofertas)
     print(f"[{FUENTE}] {len(ofertas)} ofertas guardadas en {destino}")

@@ -1,0 +1,7 @@
+# Dependencias del proyecto. Se van agregando a medida que avanza el pipeline.
+
+# Peticiones HTTP a las APIs (Remotive, Jooble) y futuros scrapers
+requests==2.34.2
+
+# Leer variables sensibles (API keys) desde el archivo .env
+python-dotenv==1.2.2
