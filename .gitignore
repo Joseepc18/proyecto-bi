@@ -1,3 +1,21 @@
+# --- Proyecto BI: archivos solo locales (no versionar) ---
+CLAUDE.md
+docs/
+
+# --- Proyecto BI: datos crudos/procesados (no commitear datos pesados) ---
+data/raw/*
+data/staging/*
+data/processed/*
+# ...pero conservar la estructura de carpetas en git:
+!data/raw/.gitkeep
+!data/staging/.gitkeep
+!data/processed/.gitkeep
+
+# Archivos temporales de Microsoft Office (entregables en docs/)
+~$*.docx
+~$*.xlsx
+~$*.pptx
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
