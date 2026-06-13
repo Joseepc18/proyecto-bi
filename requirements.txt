@@ -5,3 +5,7 @@ requests==2.34.2
 
 # Leer variables sensibles (API keys) desde el archivo .env
 python-dotenv==1.2.2
+
+# Parsear el HTML de los portales de empleo (scraping)
+beautifulsoup4==4.15.0
+
