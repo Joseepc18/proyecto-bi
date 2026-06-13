@@ -25,11 +25,11 @@ HEADERS = {
 
 def _texto(elemento):
     # Devuelve el texto limpio del elemento, o None si no existe.
-    return elemento.get_text(strip=True) if elemento else None
+    return elemento.get_text(" ", strip=True) if elemento else None
 
 
 def _parsear_pagina(soup, rol):
-    # Extrae las ofertas de una sola pagina ya descargada.
+    # Extrae las ofertas de una sola pagina de listado (sin la descripcion).
     ofertas = []
     for art in soup.select("article.box_offer"):
         titulo = art.select_one("a.js-o-link")
@@ -57,6 +57,14 @@ def _parsear_pagina(soup, rol):
     return ofertas
 
 
+def extraer_descripcion(link):
+    # Entra a la pagina de la oferta y devuelve el texto completo de la descripcion.
+    respuesta = requests.get(link, headers=HEADERS, timeout=20)
+    respuesta.raise_for_status()
+    soup = BeautifulSoup(respuesta.text, "html.parser")
+    return _texto(soup.select_one("div.mb40.pb40.bb1"))
+
+
 def extraer_ofertas():
     ofertas = []
     # Por cada rol objetivo, recorremos sus paginas hasta que una venga vacia.
@@ -70,8 +78,19 @@ def extraer_ofertas():
             nuevas = _parsear_pagina(soup, rol)
             if not nuevas:        # pagina sin ofertas = ya no hay mas para este rol
                 break
+
+            # Entramos a cada oferta a traer su descripcion completa.
+            for oferta in nuevas:
+                try:
+                    oferta["descripcion"] = (
+                        extraer_descripcion(oferta["link"]) if oferta["link"] else None
+                    )
+                except requests.RequestException:
+                    # Si esa pagina falla, seguimos con las demas sin cortar todo.
+                    oferta["descripcion"] = None
+                time.sleep(1)     # pausa entre cada detalle (rate limiting)
+
             ofertas.extend(nuevas)
-            time.sleep(1)         # pausa para no saturar el servidor (rate limiting)
     return ofertas
 
 
