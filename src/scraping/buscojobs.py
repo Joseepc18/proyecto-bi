@@ -1,11 +1,16 @@
 import json
 import re
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
+
+# Permite importar utils_log estando en src/scraping (sube a src/).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from utils_log import registrar_error
 
 FUENTE = "buscojobs"
 # Listado de la categoria "Tecnologia de la informacion" (ts1017) del portal ecuatoriano.
@@ -73,7 +78,16 @@ def extraer_ofertas():
     ofertas = []
     # Paginamos (/2, /3, ...) hasta que una pagina venga sin ofertas.
     for pagina in range(1, MAX_PAGINAS + 1):
-        crudas = _ofertas_de_pagina(pagina)
+        try:
+            crudas = _ofertas_de_pagina(pagina)
+        except (requests.RequestException, ValueError, KeyError, AttributeError) as e:
+            # ValueError/KeyError/AttributeError = cambio en la estructura del JSON incrustado.
+            registrar_error(
+                FUENTE, "estructura_o_peticion",
+                f"Fallo la pagina {pagina}: {e}",
+                "se corta la paginacion y se guarda lo recolectado",
+            )
+            break
         if not crudas:
             break
         ofertas.extend(_oferta_limpia(o) for o in crudas)
@@ -83,8 +97,9 @@ def extraer_ofertas():
 
 def guardar_raw(ofertas):
     DIR_RAW.mkdir(parents=True, exist_ok=True)
-    fecha = datetime.now().strftime("%d-%m-%Y")
-    ruta = DIR_RAW / f"{fecha}.json"
+    # Nomenclatura Raw exigida: fuente_YYYY-MM-DD.json
+    fecha = datetime.now().strftime("%Y-%m-%d")
+    ruta = DIR_RAW / f"{FUENTE}_{fecha}.json"
     ruta.write_text(
         json.dumps(ofertas, ensure_ascii=False, indent=2),
         encoding="utf-8",

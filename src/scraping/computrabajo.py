@@ -1,10 +1,15 @@
 import json
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
+
+# Permite importar utils_log estando en src/scraping (sube a src/).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from utils_log import registrar_error
 
 FUENTE = "computrabajo"
 BASE = "https://ec.computrabajo.com/trabajo-de-"
@@ -85,9 +90,14 @@ def extraer_ofertas():
                     oferta["descripcion"] = (
                         extraer_descripcion(oferta["link"]) if oferta["link"] else None
                     )
-                except requests.RequestException:
+                except requests.RequestException as e:
                     # Si esa pagina falla, seguimos con las demas sin cortar todo.
                     oferta["descripcion"] = None
+                    registrar_error(
+                        FUENTE, "peticion_fallida",
+                        f"No se pudo abrir la oferta {oferta['link']}: {e}",
+                        "descripcion=None, se continua con las demas",
+                    )
                 time.sleep(1)     # pausa entre cada detalle (rate limiting)
 
             ofertas.extend(nuevas)
@@ -96,8 +106,9 @@ def extraer_ofertas():
 
 def guardar_raw(ofertas):
     DIR_RAW.mkdir(parents=True, exist_ok=True)
-    fecha = datetime.now().strftime("%d-%m-%Y")
-    ruta = DIR_RAW / f"{fecha}.json"
+    # Nomenclatura Raw exigida: fuente_YYYY-MM-DD.json
+    fecha = datetime.now().strftime("%Y-%m-%d")
+    ruta = DIR_RAW / f"{FUENTE}_{fecha}.json"
     ruta.write_text(
         json.dumps(ofertas, ensure_ascii=False, indent=2),
         encoding="utf-8",

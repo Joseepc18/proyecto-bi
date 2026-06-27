@@ -1,10 +1,15 @@
 import json
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
+
+# Permite importar utils_log estando en src/apis (sube a src/).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from utils_log import registrar_error
 
 FUENTE = "jooble"
 # Carpeta data/raw/jooble/ calculada desde la ubicacion de este archivo.
@@ -35,8 +40,9 @@ def consultar_ofertas(keyword, ubicacion=""):
 def guardar_raw(ofertas):
     # Crea la carpeta si no existe (no falla si ya existe).
     DIR_RAW.mkdir(parents=True, exist_ok=True)
-    fecha = datetime.now().strftime("%d-%m-%Y")
-    ruta = DIR_RAW / f"{fecha}.json"
+    # Nomenclatura Raw exigida: fuente_YYYY-MM-DD.json
+    fecha = datetime.now().strftime("%Y-%m-%d")
+    ruta = DIR_RAW / f"{FUENTE}_{fecha}.json"
     # ensure_ascii=False para conservar tildes/ñ; indent=2 para que sea legible.
     ruta.write_text(
         json.dumps(ofertas, ensure_ascii=False, indent=2),
@@ -46,6 +52,10 @@ def guardar_raw(ofertas):
 
 
 if __name__ == "__main__":
-    ofertas = consultar_ofertas("developer")
+    try:
+        ofertas = consultar_ofertas("developer")
+    except (requests.RequestException, RuntimeError, KeyError) as e:
+        registrar_error(FUENTE, "consulta_api_fallida", str(e), "no se genero archivo raw")
+        raise
     destino = guardar_raw(ofertas)
     print(f"[{FUENTE}] {len(ofertas)} ofertas guardadas en {destino}")

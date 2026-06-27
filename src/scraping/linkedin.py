@@ -1,10 +1,15 @@
 import json
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
+
+# Permite importar utils_log estando en src/scraping (sube a src/).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from utils_log import registrar_error
 
 FUENTE = "linkedin"
 # Endpoint publico de busqueda de empleos de LinkedIn (sin login).
@@ -65,8 +70,16 @@ def extraer_ofertas():
     for rol in ROLES:
         for inicio in range(0, MAX_OFERTAS_POR_ROL, PASO):
             params = {"keywords": rol, "location": UBICACION, "start": inicio}
-            respuesta = requests.get(URL, headers=HEADERS, params=params, timeout=20)
-            respuesta.raise_for_status()
+            try:
+                respuesta = requests.get(URL, headers=HEADERS, params=params, timeout=20)
+                respuesta.raise_for_status()
+            except requests.RequestException as e:
+                registrar_error(
+                    FUENTE, "peticion_fallida",
+                    f"Fallo el listado rol='{rol}' start={inicio}: {e}",
+                    "se pasa al siguiente rol",
+                )
+                break
 
             # nos quedamos solo con las ofertas que no habiamos visto antes
             nuevas = [o for o in _parsear(respuesta.text, rol)
@@ -78,8 +91,13 @@ def extraer_ofertas():
             for oferta in nuevas:
                 try:
                     oferta["descripcion"] = extraer_descripcion(oferta["link"])
-                except requests.RequestException:
+                except requests.RequestException as e:
                     oferta["descripcion"] = None
+                    registrar_error(
+                        FUENTE, "peticion_fallida",
+                        f"No se pudo abrir la oferta {oferta['link']}: {e}",
+                        "descripcion=None, se continua con las demas",
+                    )
                 vistos.add(oferta["link"])
                 time.sleep(1)     # pausa entre cada detalle (rate limiting)
 
@@ -89,8 +107,9 @@ def extraer_ofertas():
 
 def guardar_raw(ofertas):
     DIR_RAW.mkdir(parents=True, exist_ok=True)
-    fecha = datetime.now().strftime("%d-%m-%Y")
-    ruta = DIR_RAW / f"{fecha}.json"
+    # Nomenclatura Raw exigida: fuente_YYYY-MM-DD.json
+    fecha = datetime.now().strftime("%Y-%m-%d")
+    ruta = DIR_RAW / f"{FUENTE}_{fecha}.json"
     ruta.write_text(
         json.dumps(ofertas, ensure_ascii=False, indent=2),
         encoding="utf-8",
