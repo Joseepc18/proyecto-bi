@@ -1,5 +1,2 @@
 timestamp,fuente,tipo_error,descripcion,accion_tomada
-2026-06-26 21:06:54,validacion,salario_fuera_de_rango,"13 salarios fuera de [400, 10000] USD/mes","salario anulado (NULL), se conserva la oferta"
-2026-06-26 22:25:39,validacion,salario_fuera_de_rango,"13 salarios fuera de [400, 10000] USD/mes","salario anulado (NULL), se conserva la oferta"
-2026-06-26 22:34:32,validacion,salario_fuera_de_rango,"13 salarios fuera de [400, 10000] USD/mes","salario anulado (NULL), se conserva la oferta"
-2026-06-26 22:42:11,validacion,salario_fuera_de_rango,"13 salarios fuera de [400, 10000] USD/mes","salario anulado (NULL), se conserva la oferta"
+2026-06-27 12:47:20,validacion,salario_fuera_de_rango,"13 salarios fuera de [400, 10000] USD/mes","salario anulado (NULL), se conserva la oferta"
