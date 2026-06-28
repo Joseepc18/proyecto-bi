@@ -11,3 +11,6 @@ beautifulsoup4==4.15.0
 
 # Procesamiento y homologación de datos en el pipeline ETL
 pandas==2.3.1
+
+# Conector de PostgreSQL para cargar el Data Warehouse (Entregable 4)
+psycopg2-binary==2.9.10
