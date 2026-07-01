@@ -2,20 +2,11 @@
 CLAUDE.md
 docs/
 
-# --- Proyecto BI: datos del pipeline (NO se versionan) ---
-# Los datos crudos y procesados no se suben al repo; su evidencia va como
-# captura/tabla en el documento UPSE. El .env queda fuera mas abajo (claves).
-data/raw/*
-data/staging/
-data/processed/
-# Excepcion 1: del INEC se versiona SOLO el CSV que usa el pipeline (fuente estructurada).
-!data/raw/inec
+
 data/raw/inec/*
-!data/raw/inec/Indicadores Laborales_Empleo_04_2026
+!data/raw/inec/Indicadores Laborales_Empleo_04_2026/
 data/raw/inec/Indicadores Laborales_Empleo_04_2026/*
 !data/raw/inec/Indicadores Laborales_Empleo_04_2026/4_2_1.csv
-# Excepcion 2: el log de errores SI se conserva como evidencia (lo exige el rubric).
-!data/logs/
 
 # Archivos temporales de Microsoft Office (entregables en docs/)
 ~$*.docx
