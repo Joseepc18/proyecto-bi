@@ -7,14 +7,27 @@ import psycopg2
 import streamlit as st
 from dotenv import load_dotenv
 
-# Conexion al DW (se lee del .env, igual que carga_dw.py).
+# Conexion al DW. En local se lee del .env; en Streamlit Cloud, de st.secrets.
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
+
+def _cfg(clave, defecto=None):
+    # Prioriza st.secrets (nube) y cae al .env (local) si no existe.
+    try:
+        if clave in st.secrets:
+            return st.secrets[clave]
+    except Exception:
+        pass
+    return os.getenv(clave, defecto)
+
+
 CONEXION = {
-    "host": os.getenv("DB_HOST", "localhost"),
-    "port": os.getenv("DB_PORT", "5432"),
-    "dbname": os.getenv("DB_NAME", "proyecto_bi_dw"),
-    "user": os.getenv("DB_USER", "postgres"),
-    "password": os.getenv("DB_PASSWORD"),
+    "host": _cfg("DB_HOST", "localhost"),
+    "port": _cfg("DB_PORT", "5432"),
+    "dbname": _cfg("DB_NAME", "proyecto_bi_dw"),
+    "user": _cfg("DB_USER", "postgres"),
+    "password": _cfg("DB_PASSWORD"),
+    "sslmode": _cfg("DB_SSLMODE", "prefer"),  # 'require' en la nube (Neon), 'prefer' en local
 }
 
 st.set_page_config(page_title="BI - Mercado Laboral Tech Ecuador",

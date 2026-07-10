@@ -18,6 +18,7 @@ CONEXION = {
     "dbname": os.getenv("DB_NAME", "proyecto_bi_dw"),
     "user": os.getenv("DB_USER", "postgres"),
     "password": os.getenv("DB_PASSWORD"),
+    "sslmode": os.getenv("DB_SSLMODE", "prefer"),  # 'require' para la nube (Neon)
 }
 
 MESES = ["", "enero", "febrero", "marzo", "abril", "mayo", "junio",
