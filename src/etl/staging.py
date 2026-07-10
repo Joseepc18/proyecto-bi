@@ -78,6 +78,11 @@ def _normalizar_fecha(fecha_raw: str | None, fecha_carga: datetime) -> str | Non
 
 def _fila(titulo, empresa, ubicacion, salario_raw, modalidad_raw,
           fecha_raw, descripcion, link, fuente, ambito, fecha_carga: datetime) -> dict:
+    # Una oferta no puede publicarse despues de la fecha de extraccion; si la fecha
+    # normalizada cae en el futuro, es un parseo dudoso -> se deja nula (luego se imputa).
+    fecha = _normalizar_fecha(fecha_raw, fecha_carga)
+    if fecha and fecha > fecha_carga.strftime("%Y-%m-%d"):
+        fecha = None
     return {
         "titulo":        _texto(titulo),
         "empresa":       _texto(empresa),
@@ -85,7 +90,7 @@ def _fila(titulo, empresa, ubicacion, salario_raw, modalidad_raw,
         "salario_raw":   _texto(salario_raw),
         "modalidad_raw": _texto(modalidad_raw),
         "fecha_raw":     _texto(fecha_raw),
-        "fecha":         _normalizar_fecha(fecha_raw, fecha_carga),
+        "fecha":         fecha,
         "descripcion":   _texto(descripcion),
         "link":          _texto(link),
         "fuente":        fuente,

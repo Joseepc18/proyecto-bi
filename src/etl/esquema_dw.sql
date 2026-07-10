@@ -87,3 +87,13 @@ CREATE TABLE puente_oferta_tecnologia (
     id_tecnologia  INT  NOT NULL REFERENCES dim_tecnologia(id_tecnologia),
     PRIMARY KEY (id_oferta, id_tecnologia)
 );
+
+-- ─────────────────────────────── INDICES ───────────────────────────────────
+-- Indices en las claves foraneas de la tabla de hechos: aceleran los JOINs y las
+-- agregaciones (GROUP BY) que usan los 6 KPIs.
+CREATE INDEX idx_fact_tiempo    ON fact_ofertas_empleo (id_tiempo);
+CREATE INDEX idx_fact_fuente    ON fact_ofertas_empleo (id_fuente);
+CREATE INDEX idx_fact_rol       ON fact_ofertas_empleo (id_rol);
+CREATE INDEX idx_fact_ubicacion ON fact_ofertas_empleo (id_ubicacion);
+CREATE INDEX idx_fact_modalidad ON fact_ofertas_empleo (id_modalidad);
+CREATE INDEX idx_puente_tecnologia ON puente_oferta_tecnologia (id_tecnologia);

@@ -13,9 +13,12 @@ from utils_log import registrar_error
 PROCESSED = BASE / "data" / "processed"
 
 # Rango mensual valido para una oferta de TI en USD (decision del equipo).
-# Fuera de este rango el salario se considera error de captura.
+# Fuera de este rango el salario se considera error de captura. El tope depende del
+# ambito: el local es realista para Ecuador; el internacional admite salarios remotos
+# altos (ofertas anuales de agregadores como Jooble/Remotive convertidas a mensual).
 SALARIO_MIN = 400
-SALARIO_MAX = 10000
+SALARIO_MAX_LOCAL = 10000
+SALARIO_MAX_INTERNACIONAL = 40000
 
 # Campos minimos que toda oferta debe traer para ser util en el DW.
 CAMPOS_CLAVE = ["titulo", "fuente", "fecha_carga"]
@@ -79,15 +82,20 @@ def validar(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     #   salario: NO se imputa. Su ausencia es estructural (la fuente no lo publica);
     #            imputarlo falsearia el KPI de salario. Se conserva NULL.
 
-    # 3.3 / 3.7 RANGO DE SALARIO: fuera de [400, 10000] = error de captura.
+    # 3.3 / 3.7 RANGO DE SALARIO: fuera del rango valido (segun ambito) = error de captura.
     #     Se anula solo el salario (NULL) y se conserva la oferta para los demas KPIs.
+    tope = df["ambito"].map(
+        {"local": SALARIO_MAX_LOCAL, "internacional": SALARIO_MAX_INTERNACIONAL}
+    ).fillna(SALARIO_MAX_LOCAL)
     fuera = df["salario_ofertado"].notna() & (
-        (df["salario_ofertado"] < SALARIO_MIN) | (df["salario_ofertado"] > SALARIO_MAX)
+        (df["salario_ofertado"] < SALARIO_MIN) | (df["salario_ofertado"] > tope)
     )
     n_fuera = int(fuera.sum())
     if n_fuera:
         registrar_error("validacion", "salario_fuera_de_rango",
-                        f"{n_fuera} salarios fuera de [{SALARIO_MIN}, {SALARIO_MAX}] USD/mes",
+                        f"{n_fuera} salarios fuera de rango "
+                        f"(min {SALARIO_MIN}; max local {SALARIO_MAX_LOCAL}, "
+                        f"internacional {SALARIO_MAX_INTERNACIONAL}) USD/mes",
                         "salario anulado (NULL), se conserva la oferta")
     df.loc[fuera, "salario_ofertado"] = pd.NA
     df.loc[fuera, "tiene_salario"] = 0

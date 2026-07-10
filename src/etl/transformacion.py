@@ -90,25 +90,29 @@ def _archivo_reciente() -> Path:
 
 def _salario_computrabajo(texto: str) -> float | None:
     # Formato espanol: "15.000,00 US$ (Mensual) + Comisiones" -> 15000.00 (ya mensual).
+    # Si viene un rango ("1.200,00 - 1.500,00 US$") se toma el punto medio (igual que el internacional).
     cabeza = texto.split("US$")[0].strip()
     cabeza = cabeza.replace(".", "").replace(",", ".")  # . miles, , decimal
-    m = re.search(r"\d+(?:\.\d+)?", cabeza)
-    return round(float(m.group()), 2) if m else None
+    numeros = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", cabeza)]
+    return round(sum(numeros) / len(numeros), 2) if numeros else None
 
 
-def _salario_jooble(texto: str) -> float | None:
-    # Formatos: "$80k - $100k" (anual), "$34 per hour", "$95 - $135 per hour".
+def _salario_internacional(texto: str) -> float | None:
+    # Jooble y Remotive comparten formato: "$80k - $100k" (anual), "$34 per hour",
+    # "$18 - $22/hr". La 'k' son miles (anual); "hour"/"/hr" indica por hora.
+    # El sufijo 'k' se aplica por numero para no confundir "100 per hour" con miles.
     bajo = texto.lower()
-    numeros = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", bajo)]
+    numeros = [
+        float(val) * (1000 if k else 1)
+        for val, k in re.findall(r"(\d+(?:\.\d+)?)\s*(k?)", bajo)
+    ]
     if not numeros:
         return None
-    valor = sum(numeros) / len(numeros)        # rango -> punto medio
-    if "k" in bajo:
-        valor *= 1000                          # "80k" -> 80000 anual
-    if "per hour" in bajo or "hora" in bajo:
+    valor = sum(numeros) / len(numeros)         # rango -> punto medio
+    if "hour" in bajo or "/hr" in bajo or "hora" in bajo:
         valor *= HORAS_MES                      # por hora -> mensual
-    elif "k" in bajo:                           # anual -> mensual
-        valor /= 12
+    elif "k" in bajo:
+        valor /= 12                             # anual -> mensual
     return round(valor, 2)
 
 
@@ -117,8 +121,8 @@ def _salario_mensual(texto, fuente: str) -> float | None:
         return None
     if fuente == "computrabajo":
         return _salario_computrabajo(texto)
-    if fuente == "jooble":
-        return _salario_jooble(texto)
+    if fuente in ("jooble", "remotive"):        # ambas APIs internacionales, mismo formato
+        return _salario_internacional(texto)
     return None  # las demas fuentes no exponen salario
 
 
@@ -173,7 +177,7 @@ def _detectar_tecnologias(descripcion) -> list[str]:
 
 # ── proceso principal ─────────────────────────────────────────────────────────
 
-def transformar() -> pd.DataFrame:
+def transformar() -> tuple[pd.DataFrame, Path]:
     ruta = _archivo_reciente()
     df = pd.read_csv(ruta)
 

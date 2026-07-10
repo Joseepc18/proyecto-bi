@@ -49,6 +49,7 @@ LIMIT 10;
 -- ─────────────────────────────────────────────────────────────────────
 -- KPI 4 - Brecha salarial local vs internacional
 -- Pregunta: se gana mas en el extranjero que en Ecuador?
+-- Parte A: salario promedio por ambito.
 -- ─────────────────────────────────────────────────────────────────────
 SELECT
     fu.ambito,
@@ -60,33 +61,64 @@ WHERE f.tiene_salario = 1
 GROUP BY fu.ambito
 ORDER BY salario_promedio_usd DESC;
 
+-- Parte B: la brecha como porcentaje, segun la formula del E1:
+-- ((salario_internacional - salario_local) / salario_local) * 100
+WITH prom AS (
+    SELECT fu.ambito, AVG(f.salario_ofertado) AS s
+    FROM fact_ofertas_empleo f
+    JOIN dim_fuente fu ON f.id_fuente = fu.id_fuente
+    WHERE f.tiene_salario = 1
+    GROUP BY fu.ambito
+)
+SELECT ROUND(100.0 * (
+           MAX(s) FILTER (WHERE ambito = 'internacional')
+         - MAX(s) FILTER (WHERE ambito = 'local')
+       ) / MAX(s) FILTER (WHERE ambito = 'local'), 1) AS brecha_pct
+FROM prom;
+
 
 -- ─────────────────────────────────────────────────────────────────────
 -- KPI 5 - Variacion de ofertas por rol (por mes, con funcion de ventana LAG)
 -- Pregunta: como crece o cae el numero de ofertas de cada rol?
+-- Se calcula la variacion porcentual segun la formula del E1:
+-- ((ofertas_actual - ofertas_anterior) / ofertas_anterior) * 100
 -- ─────────────────────────────────────────────────────────────────────
+WITH por_mes AS (
+    SELECT
+        r.nombre_rol,
+        t.mes,
+        t.nombre_mes,
+        COUNT(*)                                                      AS ofertas,
+        LAG(COUNT(*)) OVER (PARTITION BY r.nombre_rol ORDER BY t.mes) AS ofertas_mes_anterior
+    FROM fact_ofertas_empleo f
+    JOIN dim_rol r    ON f.id_rol    = r.id_rol
+    JOIN dim_tiempo t ON f.id_tiempo = t.id_tiempo
+    WHERE r.nombre_rol <> 'Otro'
+    GROUP BY r.nombre_rol, t.mes, t.nombre_mes
+)
 SELECT
-    r.nombre_rol,
-    t.mes,
-    t.nombre_mes,
-    COUNT(*)                                                          AS ofertas,
-    LAG(COUNT(*)) OVER (PARTITION BY r.nombre_rol ORDER BY t.mes)     AS ofertas_mes_anterior
-FROM fact_ofertas_empleo f
-JOIN dim_rol r    ON f.id_rol    = r.id_rol
-JOIN dim_tiempo t ON f.id_tiempo = t.id_tiempo
-WHERE r.nombre_rol <> 'Otro'
-GROUP BY r.nombre_rol, t.mes, t.nombre_mes
-ORDER BY r.nombre_rol, t.mes;
+    nombre_rol,
+    nombre_mes,
+    ofertas,
+    ofertas_mes_anterior,
+    ROUND(100.0 * (ofertas - ofertas_mes_anterior)
+          / NULLIF(ofertas_mes_anterior, 0), 1) AS variacion_pct
+FROM por_mes
+ORDER BY nombre_rol, mes;
 
 
 -- ─────────────────────────────────────────────────────────────────────
 -- KPI 6 - Relacion salario TI vs salario nacional (INEC)
--- Pregunta: los roles TI ganan mas que el promedio nacional del sector?
+-- Pregunta: los roles TI en Ecuador ganan mas que el promedio nacional del sector?
+-- Se compara SOLO el salario LOCAL (Ecuador) contra el promedio nacional del INEC,
+-- que tambien es de Ecuador: comparar Ecuador vs Ecuador es lo coherente. El salario
+-- internacional se analiza aparte en el KPI 4 (brecha), no aqui.
 -- ─────────────────────────────────────────────────────────────────────
 SELECT
-    ROUND(AVG(f.salario_ofertado), 2)                              AS salario_promedio_ti,
+    ROUND(AVG(f.salario_ofertado), 2)                              AS salario_promedio_ti_local,
     MAX(t.salario_promedio_nacional)                               AS salario_nacional_inec,
     ROUND(AVG(f.salario_ofertado) / MAX(t.salario_promedio_nacional), 2) AS relacion_ti_vs_nacional
 FROM fact_ofertas_empleo f
-JOIN dim_tiempo t ON f.id_tiempo = t.id_tiempo
-WHERE f.tiene_salario = 1;
+JOIN dim_tiempo t  ON f.id_tiempo = t.id_tiempo
+JOIN dim_fuente fu ON f.id_fuente = fu.id_fuente
+WHERE f.tiene_salario = 1 AND fu.ambito = 'local';
