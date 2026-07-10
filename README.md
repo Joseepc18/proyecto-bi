@@ -38,11 +38,12 @@ proyecto-bi/
 └── requirements.txt
 ```
 
-Un detalle sobre los datos: en el repositorio solo va el **código**, el archivo del
-**INEC** que usamos (`data/raw/inec/.../4_2_1.csv`) y la **bitácora de errores**. Las ofertas
-crudas y los archivos de staging/processed **no se versionan** (se generan al correr el
-pipeline). Así el repo se mantiene liviano; al ejecutar los scripts, las carpetas de `data/`
-se crean y se llenan solas.
+Un detalle sobre los datos: en el repositorio se versionan una **foto de los datos crudos**
+de las extracciones realizadas (`data/raw/<fuente>/<fuente>_AAAA-MM-DD.json`), el archivo del
+**INEC** (`data/raw/inec/.../4_2_1.csv`) y la **bitácora de errores**, para que los resultados
+sean reproducibles y auditables. Lo que **no** se versiona es el resto de la descarga pesada del
+INEC (solo va el CSV que usamos). Al ejecutar los scripts, las carpetas de `data/staging/` y
+`data/processed/` se regeneran solas a partir de esos crudos.
 
 ## Antes de empezar: preparar el entorno
 
@@ -149,12 +150,50 @@ Después de correr todo, vas a tener:
 El archivo `validado_AAAA-MM-DD.csv` es el que alimenta el Data Warehouse en la siguiente
 etapa del proyecto.
 
+### Paso 3 — Cargar el Data Warehouse (E4)
+
+Necesitas **PostgreSQL** instalado y corriendo. Primero configura las variables de la base
+en el `.env` (ya vienen en `.env.example`):
+
+```
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=proyecto_bi_dw
+DB_USER=postgres
+DB_PASSWORD=tu_contrasena_de_postgres
+```
+
+Luego crea la base, el esquema estrella y carga los datos:
+
+```bash
+# 1. Crear la base de datos
+psql -U postgres -c "CREATE DATABASE proyecto_bi_dw;"
+
+# 2. Crear el esquema estrella (tablas, claves e índices)
+psql -U postgres -d proyecto_bi_dw -f src/etl/esquema_dw.sql
+
+# 3. Cargar el DW desde el CSV validado + el salario del INEC
+python src/etl/carga_dw.py
+```
+
+Las consultas analíticas de los 6 KPIs están en `src/etl/consultas_kpis.sql` (ejecutar en
+pgAdmin o con `psql`).
+
+### Paso 4 — Ver el dashboard (E5)
+
+```bash
+streamlit run src/dashboard/app.py
+```
+
+El dashboard se conecta al Data Warehouse (usa las mismas variables `DB_*` del `.env`) y
+calcula los 6 KPIs en vivo.
+
 ## Estado del proyecto
 
 - [x] E1 — Definición del problema y diseño conceptual
 - [x] E2 — Arquitectura y modelo dimensional (esquema estrella)
 - [x] E3 — Pipeline de extracción, limpieza, transformación y controles de calidad
-- [ ] E4 — Data Warehouse y consultas analíticas
-- [ ] E5 — Dashboard e insights
+- [x] E4 — Data Warehouse (esquema estrella) y consultas analíticas de los 6 KPIs
+- [ ] E5 — Dashboard e insights (en construcción)
 
 

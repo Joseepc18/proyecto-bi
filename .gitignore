@@ -1,6 +1,8 @@
 # --- Proyecto BI: archivos solo locales (no versionar) ---
 CLAUDE.md
 docs/
+GUION_EXPOSICION_E5.md
+.claude/
 
 
 data/raw/inec/*
