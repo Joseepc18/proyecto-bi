@@ -30,8 +30,16 @@ CONEXION = {
     "sslmode": _cfg("DB_SSLMODE", "prefer"),  # 'require' en la nube (Neon), 'prefer' en local
 }
 
+# Icono de la pestaña: usa la imagen de img/ y cae al emoji si no está disponible.
+try:
+    from PIL import Image
+    _ico = Path(__file__).resolve().parents[2] / "img" / "informe-de-analisis.png"
+    PAGE_ICON = Image.open(_ico) if _ico.exists() else "📊"
+except Exception:
+    PAGE_ICON = "📊"
+
 st.set_page_config(page_title="Dashboard Mercado Laboral Tech",
-                   page_icon="📊", layout="wide", initial_sidebar_state="expanded")
+                   page_icon=PAGE_ICON, layout="wide", initial_sidebar_state="expanded")
 
 # Paleta azul monocroma (estilo dashboard corporativo).
 AZUL = "#2E6099"
@@ -40,7 +48,11 @@ PALETA = ["#1F4E79", "#3B7DD8", "#7FB2E5", "#B9D4EE", "#2E6DB4", "#5B9BD5"]
 
 st.markdown("""
 <style>
-#MainMenu, footer, [data-testid="stHeader"] {visibility: hidden;}
+#MainMenu, footer {visibility: hidden;}
+/* Cabecera transparente pero NO oculta: conserva la flecha para reabrir el sidebar. */
+[data-testid="stHeader"] {background: transparent;}
+[data-testid="stSidebarCollapsedControl"] {display: flex !important; visibility: visible !important;}
+[data-testid="stSidebarCollapsedControl"] button {color: #1F3D5C !important;}
 .stApp {background:#EEF2F7;}
 .block-container {padding-top: 1.1rem; padding-bottom: 1.5rem; max-width: 1400px;}
 
