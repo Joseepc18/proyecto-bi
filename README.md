@@ -186,7 +186,20 @@ streamlit run src/dashboard/app.py
 ```
 
 El dashboard se conecta al Data Warehouse (usa las mismas variables `DB_*` del `.env`) y
-calcula los 6 KPIs en vivo.
+calcula los 6 KPIs en vivo, con filtros reactivos por fuente, rol y mes.
+
+> **Dashboard publicado (acceso web):** el dashboard está desplegado en Streamlit Community
+> Cloud, conectado a un Data Warehouse PostgreSQL en la nube (Neon).
+> URL pública: https://proyecto-bi-mercado-tech.streamlit.app/
+
+## Cómo reproducir el proyecto
+
+- **Para ver el dashboard en vivo:** abre la URL pública (no requiere instalar nada).
+- **Para reproducir con el mismo dataset:** usa las fotos crudas incluidas en `data/raw/` y
+  ejecuta desde la fase de staging (Paso 2 en adelante), **sin volver a hacer scraping**. Así
+  obtienes exactamente los mismos registros y KPIs del informe.
+- **Para una extracción nueva:** ejecuta los scrapers del Paso 1 (los datos serán distintos,
+  porque los portales cambian con el tiempo, y requieren tu propia clave de Jooble en el `.env`).
 
 ## Estado del proyecto
 
@@ -194,6 +207,6 @@ calcula los 6 KPIs en vivo.
 - [x] E2 — Arquitectura y modelo dimensional (esquema estrella)
 - [x] E3 — Pipeline de extracción, limpieza, transformación y controles de calidad
 - [x] E4 — Data Warehouse (esquema estrella) y consultas analíticas de los 6 KPIs
-- [ ] E5 — Dashboard e insights (en construcción)
+- [x] E5 — Dashboard interactivo en la nube e insights
 
 
