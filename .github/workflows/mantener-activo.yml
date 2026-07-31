@@ -1,0 +1,54 @@
+# Mantiene despierto el dashboard en Streamlit Community Cloud.
+# La plataforma duerme las apps gratuitas tras ~12 h sin trafico, asi que
+# abrimos la pagina periodicamente con un navegador real (una peticion HTTP
+# simple no basta: Streamlit cuenta sesiones de navegador, no requests).
+
+name: Mantener el dashboard activo
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"  # cada 6 horas (UTC)
+  workflow_dispatch:        # permite ejecutarlo a mano desde la pestaña Actions
+
+jobs:
+  visitar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar Playwright
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Abrir el dashboard
+        env:
+          URL: https://proyecto-bi-mercado-tech.streamlit.app/
+        run: |
+          python - <<'PY'
+          import os
+          from playwright.sync_api import sync_playwright
+
+          URL = os.environ["URL"]
+
+          with sync_playwright() as p:
+              nav = p.chromium.launch()
+              pagina = nav.new_page()
+              pagina.goto(URL, timeout=90_000)
+
+              # Si la app ya estaba dormida, aparece el boton para reactivarla.
+              boton = pagina.get_by_text("get this app back up", exact=False)
+              if boton.count() > 0:
+                  print("La app estaba dormida. Reactivandola...")
+                  boton.first.click()
+                  pagina.wait_for_timeout(60_000)
+              else:
+                  print("La app ya estaba despierta.")
+
+              # Damos tiempo a que la sesion quede registrada como trafico real.
+              pagina.wait_for_timeout(20_000)
+              print("Titulo de la pagina:", pagina.title())
+              nav.close()
+          PY

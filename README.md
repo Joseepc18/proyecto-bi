@@ -192,6 +192,14 @@ calcula los 6 KPIs en vivo, con filtros reactivos por fuente, rol y mes.
 > Cloud, conectado a un Data Warehouse PostgreSQL en la nube (Neon).
 > URL pública: https://proyecto-bi-mercado-tech.streamlit.app/
 
+#### Disponibilidad del dashboard
+
+Streamlit Community Cloud (plan gratuito) duerme las aplicaciones que no reciben tráfico
+durante ~12 horas: al entrar aparece un botón para reactivarla y tarda entre 30 y 60
+segundos en volver. Para evitarlo, el workflow
+[`.github/workflows/mantener-activo.yml`](.github/workflows/mantener-activo.yml) abre la URL
+cada 6 horas con un navegador headless, de modo que la app se mantenga siempre disponible.
+
 ## Cómo reproducir el proyecto
 
 - **Para ver el dashboard en vivo:** abre la URL pública (no requiere instalar nada).
