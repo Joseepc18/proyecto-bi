@@ -49,6 +49,10 @@ LIMIT 10;
 -- ─────────────────────────────────────────────────────────────────────
 -- KPI 4 - Brecha salarial local vs internacional
 -- Pregunta: se gana mas en el extranjero que en Ecuador?
+-- Comparacion justa (peras con peras): SOLO los roles TI objetivo en ambos ambitos.
+-- Se excluye 'Otro' porque el scraping local arrastra empleos no tecnicos de sueldo
+-- minimo (vendedores, call center) que hundirian el promedio local y exagerarian la
+-- brecha; el lado internacional casi no los tiene, asi que compararlos seria injusto.
 -- Parte A: salario promedio por ambito.
 -- ─────────────────────────────────────────────────────────────────────
 SELECT
@@ -57,7 +61,8 @@ SELECT
     COUNT(*)                          AS ofertas_con_salario
 FROM fact_ofertas_empleo f
 JOIN dim_fuente fu ON f.id_fuente = fu.id_fuente
-WHERE f.tiene_salario = 1
+JOIN dim_rol r     ON f.id_rol    = r.id_rol
+WHERE f.tiene_salario = 1 AND r.nombre_rol <> 'Otro'
 GROUP BY fu.ambito
 ORDER BY salario_promedio_usd DESC;
 
@@ -67,7 +72,8 @@ WITH prom AS (
     SELECT fu.ambito, AVG(f.salario_ofertado) AS s
     FROM fact_ofertas_empleo f
     JOIN dim_fuente fu ON f.id_fuente = fu.id_fuente
-    WHERE f.tiene_salario = 1
+    JOIN dim_rol r     ON f.id_rol    = r.id_rol
+    WHERE f.tiene_salario = 1 AND r.nombre_rol <> 'Otro'
     GROUP BY fu.ambito
 )
 SELECT ROUND(100.0 * (
@@ -82,6 +88,10 @@ FROM prom;
 -- Pregunta: como crece o cae el numero de ofertas de cada rol?
 -- Se calcula la variacion porcentual segun la formula del E1:
 -- ((ofertas_actual - ofertas_anterior) / ofertas_anterior) * 100
+-- Nota de interpretacion: el conteo por mes refleja la VENTANA DE RECOLECCION
+-- (la mayoria de las ofertas se capturo en junio 2026; los meses previos solo traen
+-- reposts antiguos de LinkedIn), no un crecimiento real del mercado. Leer como
+-- "ofertas capturadas por mes", no como tendencia de contratacion.
 -- ─────────────────────────────────────────────────────────────────────
 WITH por_mes AS (
     SELECT
@@ -110,15 +120,21 @@ ORDER BY nombre_rol, mes;
 -- ─────────────────────────────────────────────────────────────────────
 -- KPI 6 - Relacion salario TI vs salario nacional (INEC)
 -- Pregunta: los roles TI en Ecuador ganan mas que el promedio nacional del sector?
--- Se compara SOLO el salario LOCAL (Ecuador) contra el promedio nacional del INEC,
--- que tambien es de Ecuador: comparar Ecuador vs Ecuador es lo coherente. El salario
+-- Se compara SOLO el salario LOCAL (Ecuador) de los ROLES TI OBJETIVO contra el
+-- promedio nacional del INEC, que tambien es de Ecuador: comparar Ecuador-TI vs Ecuador
+-- es lo coherente. Se excluye el rol 'Otro' (empleos no tecnicos que el scraping arrastra)
+-- para que el promedio mida salario TI de verdad; con 'Otro' incluido el promedio caia
+-- por debajo del nacional por los sueldos minimos de vendedores/call center. El salario
 -- internacional se analiza aparte en el KPI 4 (brecha), no aqui.
+-- Nota: la muestra es pequena (pocas ofertas locales TI publican salario) -> indicativo.
 -- ─────────────────────────────────────────────────────────────────────
 SELECT
     ROUND(AVG(f.salario_ofertado), 2)                              AS salario_promedio_ti_local,
+    COUNT(*)                                                       AS ofertas_ti_con_salario,
     MAX(t.salario_promedio_nacional)                               AS salario_nacional_inec,
     ROUND(AVG(f.salario_ofertado) / MAX(t.salario_promedio_nacional), 2) AS relacion_ti_vs_nacional
 FROM fact_ofertas_empleo f
 JOIN dim_tiempo t  ON f.id_tiempo = t.id_tiempo
 JOIN dim_fuente fu ON f.id_fuente = fu.id_fuente
-WHERE f.tiene_salario = 1 AND fu.ambito = 'local';
+JOIN dim_rol r     ON f.id_rol    = r.id_rol
+WHERE f.tiene_salario = 1 AND fu.ambito = 'local' AND r.nombre_rol <> 'Otro';

@@ -179,6 +179,11 @@ _c = [c for c in (_cond("fu.nombre_fuente", fuente_sel, "Todas"),
                   _cond("t.nombre_mes", mes_sel, "Todos")) if c]
 F = (" AND " + " AND ".join(_c)) if _c else ""
 
+# Los KPIs de salario se centran en los 3 roles TI objetivo: el scraping local arrastra
+# empleos no tecnicos de sueldo minimo (rol 'Otro') que distorsionan el promedio. Se
+# excluye 'Otro', salvo que el usuario elija explicitamente un rol en el filtro.
+SOLO_TI = "" if rol_sel != "Todos" else " AND r.nombre_rol <> 'Otro'"
+
 # Joins que aportan las columnas fu/r/t a cualquier consulta sobre la tabla de hechos.
 JOINS = ("JOIN dim_fuente fu ON f.id_fuente = fu.id_fuente "
          "JOIN dim_rol r ON f.id_rol = r.id_rol "
@@ -193,9 +198,13 @@ def escalar(sql):
 # ── Metricas: 6 KPIs, todas con el filtro aplicado ────────────────────────────
 total = int(escalar(f"SELECT COUNT(*) FROM fact_ofertas_empleo f {JOINS} WHERE 1=1 {F}") or 0)
 sal_local = escalar(f"SELECT ROUND(AVG(f.salario_ofertado),0) FROM fact_ofertas_empleo f {JOINS} "
-                    f"WHERE f.tiene_salario=1 AND fu.ambito='local' {F}")
+                    f"WHERE f.tiene_salario=1 AND fu.ambito='local' {F}{SOLO_TI}")
 sal_intl = escalar(f"SELECT ROUND(AVG(f.salario_ofertado),0) FROM fact_ofertas_empleo f {JOINS} "
-                   f"WHERE f.tiene_salario=1 AND fu.ambito='internacional' {F}")
+                   f"WHERE f.tiene_salario=1 AND fu.ambito='internacional' {F}{SOLO_TI}")
+n_sal_loc = int(escalar(f"SELECT COUNT(*) FROM fact_ofertas_empleo f {JOINS} "
+                        f"WHERE f.tiene_salario=1 AND fu.ambito='local' {F}{SOLO_TI}") or 0)
+n_sal_int = int(escalar(f"SELECT COUNT(*) FROM fact_ofertas_empleo f {JOINS} "
+                        f"WHERE f.tiene_salario=1 AND fu.ambito='internacional' {F}{SOLO_TI}") or 0)
 tasa_remota = escalar(f"SELECT ROUND(100.0*SUM(es_remota)/NULLIF(COUNT(*),0),1) "
                       f"FROM fact_ofertas_empleo f {JOINS} WHERE 1=1 {F}")
 nacional = escalar(f"SELECT MAX(t.salario_promedio_nacional) FROM fact_ofertas_empleo f {JOINS} WHERE 1=1 {F}")
@@ -226,11 +235,14 @@ st.write("")
 
 c = st.columns(6)
 tarjeta(c[0], "Total de ofertas", f"{total:,}")
-tarjeta(c[1], "Salario local", money(sal_local))
-tarjeta(c[2], "Salario internacional", money(sal_intl))
+tarjeta(c[1], "Salario TI local", money(sal_local))
+tarjeta(c[2], "Salario TI internacional", money(sal_intl))
 tarjeta(c[3], "Brecha local vs. intl", pct(brecha))
 tarjeta(c[4], "Tasa remota", pct(tasa_remota))
 tarjeta(c[5], "TI local vs. nacional", f"{relacion}x" if relacion is not None else "n/d")
+st.caption(f"Los salarios se calculan solo sobre roles TI que publican monto "
+           f"(local n={n_sal_loc}, internacional n={n_sal_int}); se excluyen empleos no "
+           f"técnicos. Muestras reducidas: los valores son indicativos, no el salario real del mercado.")
 st.write("")
 
 
@@ -276,7 +288,7 @@ def g_salario_rol():
     if df.empty:
         return None
     df["prom"] = df["prom"].astype(float)
-    df["nombre_rol"] = df["nombre_rol"].replace("Otro", "Otros roles TI")
+    df["nombre_rol"] = df["nombre_rol"].replace("Otro", "Otros roles (no objetivo)")
     df["etq"] = df["nombre_rol"] + " (n=" + df["n"].astype(str) + ")"
     fig = px.bar(df, x="prom", y="etq", orientation="h", text_auto=".0f",
                  labels={"prom": "Salario promedio (USD)", "etq": ""})
@@ -321,6 +333,8 @@ def g_fuente():
 
 
 NOTA_SALARIO = ("Promedio sobre ofertas locales que publican salario (muestra reducida). "
+                "\"Otros roles (no objetivo)\" son empleos no técnicos que el scraping arrastra "
+                "(vendedores, call center); no entran en las tarjetas de Salario TI de arriba. "
                 "Analista/Científico de Datos no aparece: ninguna de sus ofertas publicó salario.")
 
 # ── Vistas (multi-vista con pestañas) ─────────────────────────────────────────
@@ -331,6 +345,8 @@ with tab1:
     with c1.container(border=True):
         titulo("Ofertas por mes de publicación")
         mostrar(g_mes_area())
+        st.caption("El volumen por mes refleja la ventana de recolección (mayormente junio 2026), "
+                   "no un crecimiento del mercado.")
     with c2.container(border=True):
         titulo("Distribución por modalidad")
         mostrar(g_modalidad())
@@ -350,9 +366,10 @@ with tab1:
     if n_sal and relacion is not None:
         st.success(
             f"**Insight principal:** solo el **{pct(pct_sal)}** de las ofertas "
-            f"({n_sal} de {total}) publica el salario. Entre las locales que sí lo hacen, "
-            f"el promedio ({money_md(sal_local)}) equivale a **{relacion}×** el salario nacional "
-            f"del INEC ({money_md(nacional)}) del sector información y comunicación.")
+            f"({n_sal} de {total}) publica el salario. Entre las ofertas locales de roles TI "
+            f"que sí lo hacen ({n_sal_loc}), el promedio ({money_md(sal_local)}) equivale a "
+            f"**{relacion}×** el salario nacional del INEC ({money_md(nacional)}) del sector "
+            f"información y comunicación.")
 
 with tab2:
     st.warning(f"**Opacidad salarial:** solo el **{pct(pct_sal)}** de las ofertas "
@@ -361,11 +378,11 @@ with tab2:
 
     d1, d2 = st.columns(2)
     with d1.container(border=True):
-        titulo("Salario promedio: local vs. internacional")
+        titulo("Salario promedio TI: local vs. internacional")
         df = consultar(f"""
             SELECT fu.ambito, ROUND(AVG(f.salario_ofertado), 0) AS prom, COUNT(*) AS n
             FROM fact_ofertas_empleo f {JOINS}
-            WHERE f.tiene_salario = 1 {F}
+            WHERE f.tiene_salario = 1 {F}{SOLO_TI}
             GROUP BY fu.ambito
         """)
         if df.empty:
@@ -379,7 +396,7 @@ with tab2:
             st.plotly_chart(estilo(fig), use_container_width=True)
 
     with d2.container(border=True):
-        titulo("Ofertas por mes y rol (evolución)")
+        titulo("Ofertas capturadas por mes y rol")
         df = consultar(f"""
             SELECT t.mes, t.nombre_mes, r.nombre_rol, COUNT(*) AS ofertas
             FROM fact_ofertas_empleo f {JOINS}
@@ -393,6 +410,8 @@ with tab2:
                           color_discrete_sequence=PALETA,
                           labels={"nombre_mes": "", "ofertas": "Ofertas", "nombre_rol": ""})
             st.plotly_chart(estilo(fig, leyenda="h"), use_container_width=True)
+            st.caption("Refleja la ventana de recolección (la mayoría de ofertas se capturó "
+                       "en junio 2026), no un crecimiento real del mercado.")
 
     with st.container(border=True):
         titulo("Modalidad de trabajo: local vs. internacional")
