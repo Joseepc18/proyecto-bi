@@ -327,11 +327,6 @@ def g_fuente():
     return estilo(fig)
 
 
-NOTA_SALARIO = ("Promedio sobre ofertas locales que publican salario (muestra reducida). "
-                "\"Otros roles (no objetivo)\" son empleos no técnicos que el scraping arrastra "
-                "(vendedores, call center); no entran en las tarjetas de Salario TI de arriba. "
-                "Analista/Científico de Datos no aparece: ninguna de sus ofertas publicó salario.")
-
 # ── Vistas (multi-vista con pestañas) ─────────────────────────────────────────
 tab1, tab2 = st.tabs(["Resumen General", "Análisis Detallado"])
 
@@ -340,8 +335,6 @@ with tab1:
     with c1.container(border=True):
         titulo("Ofertas por mes de publicación")
         mostrar(g_mes_area())
-        st.caption("El volumen por mes refleja la ventana de recolección (mayormente junio 2026), "
-                   "no un crecimiento del mercado.")
     with c2.container(border=True):
         titulo("Distribución por modalidad")
         mostrar(g_modalidad())
@@ -350,7 +343,6 @@ with tab1:
     with g1.container(border=True):
         titulo("Salario promedio por rol (local)")
         mostrar(g_salario_rol())
-        st.caption(NOTA_SALARIO)
     with g2.container(border=True):
         titulo("Top 10 tecnologías demandadas")
         mostrar(g_tecnologias())
@@ -405,8 +397,6 @@ with tab2:
                           color_discrete_sequence=PALETA,
                           labels={"nombre_mes": "", "ofertas": "Ofertas", "nombre_rol": ""})
             st.plotly_chart(estilo(fig, leyenda="h"), use_container_width=True)
-            st.caption("Refleja la ventana de recolección (la mayoría de ofertas se capturó "
-                       "en junio 2026), no un crecimiento real del mercado.")
 
     with st.container(border=True):
         titulo("Modalidad de trabajo: local vs. internacional")
