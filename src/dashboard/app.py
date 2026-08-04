@@ -350,19 +350,7 @@ with tab1:
         titulo("Ofertas por fuente")
         mostrar(g_fuente())
 
-    if n_sal and relacion is not None:
-        st.success(
-            f"**Insight principal:** solo el **{pct(pct_sal)}** de las ofertas "
-            f"({n_sal} de {total}) publica el salario. Entre las ofertas locales de roles TI "
-            f"que sí lo hacen ({n_sal_loc}), el promedio ({money_md(sal_local)}) equivale a "
-            f"**{relacion}×** el salario nacional del INEC ({money_md(nacional)}) del sector "
-            f"información y comunicación.")
-
 with tab2:
-    st.warning(f"**Opacidad salarial:** solo el **{pct(pct_sal)}** de las ofertas "
-               f"({n_sal} de {total}) publica el salario; el resto lo declara \"a convenir\". "
-               "Los análisis salariales se basan en muestras reducidas y son indicativos.")
-
     d1, d2 = st.columns(2)
     with d1.container(border=True):
         titulo("Salario promedio TI: local vs. internacional")
@@ -412,17 +400,8 @@ with tab2:
             st.info("Sin datos para los filtros seleccionados.")
         else:
             df_mi["pct"] = df_mi["pct"].astype(float)
-
-            def _pct_remoto(amb):
-                fila = df_mi[(df_mi["ambito"] == amb) & (df_mi["nombre_modalidad"] == "Remoto")]
-                return float(fila["pct"].iloc[0]) if not fila.empty else 0.0
-            r_int, r_loc = _pct_remoto("internacional"), _pct_remoto("local")
-
             df_mi["Ámbito"] = df_mi["ambito"].str.capitalize()
             fig = px.bar(df_mi, x="nombre_modalidad", y="pct", color="Ámbito", barmode="group",
                          text_auto=".1f", color_discrete_sequence=PALETA,
                          labels={"nombre_modalidad": "", "pct": "% dentro del ámbito"})
             st.plotly_chart(estilo(fig, leyenda="h"), use_container_width=True)
-            st.info(f"Las ofertas internacionales son mucho más remotas ({r_int:g}%) que las "
-                    f"locales ({r_loc:g}%): el teletrabajo en el mercado ecuatoriano sigue siendo "
-                    "marginal. Esto responde la pregunta secundaria 2 del Entregable 1.")
