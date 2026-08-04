@@ -203,8 +203,6 @@ sal_intl = escalar(f"SELECT ROUND(AVG(f.salario_ofertado),0) FROM fact_ofertas_e
                    f"WHERE f.tiene_salario=1 AND fu.ambito='internacional' {F}{SOLO_TI}")
 n_sal_loc = int(escalar(f"SELECT COUNT(*) FROM fact_ofertas_empleo f {JOINS} "
                         f"WHERE f.tiene_salario=1 AND fu.ambito='local' {F}{SOLO_TI}") or 0)
-n_sal_int = int(escalar(f"SELECT COUNT(*) FROM fact_ofertas_empleo f {JOINS} "
-                        f"WHERE f.tiene_salario=1 AND fu.ambito='internacional' {F}{SOLO_TI}") or 0)
 tasa_remota = escalar(f"SELECT ROUND(100.0*SUM(es_remota)/NULLIF(COUNT(*),0),1) "
                       f"FROM fact_ofertas_empleo f {JOINS} WHERE 1=1 {F}")
 nacional = escalar(f"SELECT MAX(t.salario_promedio_nacional) FROM fact_ofertas_empleo f {JOINS} WHERE 1=1 {F}")
@@ -235,14 +233,11 @@ st.write("")
 
 c = st.columns(6)
 tarjeta(c[0], "Total de ofertas", f"{total:,}")
-tarjeta(c[1], "Salario TI local", money(sal_local))
-tarjeta(c[2], "Salario TI internacional", money(sal_intl))
+tarjeta(c[1], "Salario TI local /mes", money(sal_local))
+tarjeta(c[2], "Salario TI internacional /mes", money(sal_intl))
 tarjeta(c[3], "Brecha local vs. intl", pct(brecha))
 tarjeta(c[4], "Tasa remota", pct(tasa_remota))
 tarjeta(c[5], "TI local vs. nacional", f"{relacion}x" if relacion is not None else "n/d")
-st.caption(f"Los salarios se calculan solo sobre roles TI que publican monto "
-           f"(local n={n_sal_loc}, internacional n={n_sal_int}); se excluyen empleos no "
-           f"técnicos. Muestras reducidas: los valores son indicativos, no el salario real del mercado.")
 st.write("")
 
 
@@ -291,7 +286,7 @@ def g_salario_rol():
     df["nombre_rol"] = df["nombre_rol"].replace("Otro", "Otros roles (no objetivo)")
     df["etq"] = df["nombre_rol"] + " (n=" + df["n"].astype(str) + ")"
     fig = px.bar(df, x="prom", y="etq", orientation="h", text_auto=".0f",
-                 labels={"prom": "Salario promedio (USD)", "etq": ""})
+                 labels={"prom": "Salario mensual (USD)", "etq": ""})
     fig.update_traces(marker_color="#3B7DD8")
     return estilo(fig)
 
@@ -392,7 +387,7 @@ with tab2:
             df["ambito"] = df["ambito"].str.capitalize()
             df["etq"] = df["ambito"] + " (n=" + df["n"].astype(str) + ")"
             fig = px.bar(df, x="etq", y="prom", text_auto=".0f", color="ambito",
-                         color_discrete_sequence=PALETA, labels={"etq": "", "prom": "Salario (USD)"})
+                         color_discrete_sequence=PALETA, labels={"etq": "", "prom": "Salario mensual (USD)"})
             st.plotly_chart(estilo(fig), use_container_width=True)
 
     with d2.container(border=True):
